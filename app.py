@@ -4,29 +4,6 @@ import os
 from datetime import datetime
 import json
 
-
-# Add to the top of app.py after imports
-
-st.set_page_config(
-    page_title="AI & PM Newsletter",
-    page_icon="📰",
-    layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://your-help-url.com',
-        'Report a bug': 'mailto:mehrotraudit@gmail.com',
-        'About': "AI & PM Insights Newsletter Generator v1.0"
-    }
-)
-
-# Add PWA metadata (Streamlit handles most of this automatically)
-st.markdown("""
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="AI Newsletter">
-""", unsafe_allow_html=True)
-
-
 # Configuration
 st.set_page_config(
     page_title="AI & PM Insights Newsletter",
@@ -58,6 +35,14 @@ st.markdown("""
         border-bottom: 2px solid #667eea;
         padding-bottom: 0.5rem;
         margin-bottom: 1.5rem;
+    }
+    .search-tip {
+        background-color: #e8f4f8;
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #1a5f7a;
+        margin-top: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -100,9 +85,9 @@ with st.sidebar:
     
     col1, col2 = st.columns(2)
     with col1:
-        num_ai = st.number_input("🤖 AI Articles", 1, 3, 2, help="Number of AI insights")
+        num_ai = st.number_input("🤖 AI Insights", 1, 3, 2, help="Number of AI insights")
     with col2:
-        num_pm = st.number_input("📈 PM Articles", 1, 3, 2, help="Number of PM insights")
+        num_pm = st.number_input("📈 PM Insights", 1, 3, 2, help="Number of PM insights")
     
     st.markdown("---")
     
@@ -168,249 +153,133 @@ if not generate_button and st.session_state.generated_newsletter is None:
         Generate curated AI and Product Management insights for your team in seconds.
         
         **What you'll get:**
-        - 🤖 Latest AI trends and developments (with real, working links)
+        - 🤖 Current AI trends and analysis
         - 📊 Timeless PM wisdom and frameworks
+        - 🔍 Search suggestions to find real articles
         - 📧 Email-ready format
         - 📚 Archived newsletters
         
         **Configure your newsletter in the sidebar and click "Generate Newsletter"**
         """)
         
-        st.info("💡 **Tip:** This uses web search to find real, recent articles with working links")
+        st.info("💡 **Note:** Each insight includes search suggestions to help you find the latest articles on these topics.")
 
 # Handle newsletter generation
 if generate_button:
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        
-        # Step 1: Search for AI articles
-        status_text.text("🔍 Searching for AI insights...")
-        progress_bar.progress(20)
-        
-        ai_articles = []
-        search_queries = []
-        
-        # Create search queries based on topics
-        for topic in ai_topics[:num_ai]:
-            if "Generative AI" in topic or "LLMs" in topic:
-                search_queries.append("latest generative AI LLM news 2024")
-            elif "Multilingual" in topic:
-                search_queries.append("multilingual AI translation news 2024")
-            elif "Product Strategy" in topic:
-                search_queries.append("AI product strategy trends 2024")
-            else:
-                search_queries.append(f"{topic} news 2024")
-        
-        # Search and curate AI articles
-        for query in search_queries[:num_ai]:
-            search_prompt = f"""Search for recent articles about: {query}
-
-Find high-quality articles from reputable tech publications."""
+    with st.spinner("🔮 Generating insights... This takes about 30 seconds."):
+        try:
+            client = anthropic.Anthropic(api_key=api_key)
             
-            message = client.messages.create(
+            # Get current date for context
+            current_date = datetime.now().strftime("%B %Y")
+            
+            # AI Insights prompt - focused on current trends without fake URLs
+            ai_prompt = f"""You are an expert AI analyst curating insights for product managers as of {current_date}.
+
+Generate {num_ai} high-quality AI INSIGHTS (not fake news articles) about: {', '.join(ai_topics)}
+
+Team context: {team_context if team_context else 'Building AI products at scale'}
+
+For each insight, provide:
+1. **title**: A compelling insight title (not a fake article headline)
+2. **key_insight**: 2-3 sentences explaining the current trend, development, or strategic consideration
+3. **why_it_matters**: One sentence on why this matters for AI product teams
+4. **search_terms**: 2-3 specific search terms users can use to find real articles on this topic (e.g., "Claude 3.5 Sonnet benchmark comparison", "GPT-4 vision API pricing")
+5. **recommended_sources**: 2-3 publications to search (e.g., "TechCrunch", "The Verge", "Anthropic Blog")
+
+Focus on:
+- Developments and trends that are CURRENT and ONGOING (not dated news)
+- Strategic implications for product teams
+- Practical considerations for AI implementation
+- Real companies and products (OpenAI, Anthropic, Google, Meta, etc.)
+
+Return ONLY valid JSON array (no markdown):
+[
+  {{
+    "title": "...",
+    "key_insight": "...",
+    "why_it_matters": "...",
+    "search_terms": ["term1", "term2"],
+    "recommended_sources": ["Source1", "Source2"]
+  }}
+]"""
+
+            ai_response = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=2000,
-                tools=[{
-                    "name": "web_search",
-                    "description": "Search the web for current information",
-                    "input_schema": {
-                        "type": "object",
-                        "properties": {
-                            "query": {"type": "string", "description": "Search query"}
-                        },
-                        "required": ["query"]
-                    }
-                }],
-                messages=[{"role": "user", "content": search_prompt}]
+                max_tokens=3000,
+                messages=[{"role": "user", "content": ai_prompt}]
             )
             
-            # Process search results
-            for block in message.content:
-                if hasattr(block, 'type') and block.type == 'tool_use':
-                    # Claude wants to search
-                    pass
-        
-        # For now, use a curated approach with Claude analyzing web search results
-        status_text.text("📝 Curating AI insights...")
-        progress_bar.progress(40)
-        
-        ai_curation_prompt = f"""You are curating AI insights for a product management team at Amazon.
-
-Find {num_ai} REAL, RECENT articles about: {', '.join(ai_topics)}
-
-For each article, you must provide a REAL URL from these publications:
-- TechCrunch (techcrunch.com)
-- The Verge (theverge.com) 
-- VentureBeat (venturebeat.com)
-- MIT Technology Review (technologyreview.com)
-- Ars Technica (arstechnica.com)
-- Wired (wired.com)
-
-Use web search to find actual articles from the last 2-3 months.
-
-For each article found, provide:
-1. **headline**: The actual article title
-2. **source**: The publication name
-3. **url**: The REAL, working URL (verify it exists)
-4. **tldr**: Your 2-3 sentence summary of the article
-5. **why_it_matters**: Why this matters for AI product managers
-
-IMPORTANT: Only include articles with REAL URLs that you've verified exist.
-
-Return as JSON array."""
-
-        ai_message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=3000,
-            tools=[{
-                "name": "web_search",
-                "description": "Search the web for articles",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"]
-                }
-            }],
-            messages=[{"role": "user", "content": ai_curation_prompt}]
-        )
-        
-        # Extract articles from response
-        ai_text = ""
-        for block in ai_message.content:
-            if hasattr(block, 'text'):
-                ai_text += block.text
-        
-        if "```json" in ai_text:
-            ai_text = ai_text.split("```json")[1].split("```")[0].strip()
-        
-        try:
+            ai_text = ai_response.content[0].text
+            if "```json" in ai_text:
+                ai_text = ai_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in ai_text:
+                ai_text = ai_text.split("```")[1].split("```")[0].strip()
             ai_articles = json.loads(ai_text)
-        except:
-            # Fallback: provide curated links manually
-            ai_articles = [
-                {
-                    "headline": "Claude 3.5 Sonnet: Anthropic's Most Capable AI Model Yet",
-                    "source": "TechCrunch",
-                    "url": "https://techcrunch.com/2024/06/20/anthropics-claude-3-5-sonnet-outperforms-openai-and-google/",
-                    "tldr": "Anthropic's Claude 3.5 Sonnet outperforms GPT-4 and Gemini 1.5 Pro on key benchmarks while being faster and more cost-effective. The model shows particular strength in multilingual tasks and coding.",
-                    "why_it_matters": "Demonstrates continued rapid improvement in LLM capabilities relevant to customer-facing AI products."
-                },
-                {
-                    "headline": "How AI Agents Are Transforming Enterprise Software",
-                    "source": "The Verge",
-                    "url": "https://www.theverge.com/2024/1/10/24030667/ai-agents-software-automation",
-                    "tldr": "AI agents are moving beyond chatbots to handle complex workflows autonomously. Companies are seeing 40-60% efficiency gains in customer service and data processing tasks.",
-                    "why_it_matters": "Shows practical path to deploying AI beyond simple Q&A into production workflows at scale."
-                }
-            ][:num_ai]
-        
-        # Step 2: Search for PM articles
-        status_text.text("🔍 Searching for PM insights...")
-        progress_bar.progress(60)
-        
-        pm_curation_prompt = f"""You are curating product management insights for senior PMs.
+            
+            # PM Insights prompt - timeless frameworks and wisdom
+            pm_prompt = f"""You are an expert curator of product management insights for senior PMs.
 
-Find {num_pm} REAL articles about: {', '.join(pm_topics)}
+Generate {num_pm} high-quality PM INSIGHTS about: {', '.join(pm_topics)}
 
-For each article, provide a REAL URL from these publications:
-- Lenny's Newsletter (lennysnewsletter.com)
-- First Round Review (review.firstround.com)
-- Harvard Business Review (hbr.org)
-- Product School (productschool.com)
-- Mind the Product (mindtheproduct.com)
-- Silicon Valley Product Group (svpg.com)
+For each insight, provide:
+1. **title**: A compelling insight title about a framework, principle, or best practice
+2. **key_insight**: 2-3 sentences explaining the concept and how to apply it
+3. **why_it_matters**: One sentence on relevance to modern AI-first product management
+4. **search_terms**: 2-3 specific search terms to find related content (e.g., "Lenny Rachitsky product metrics", "SVPG product discovery")
+5. **recommended_sources**: 2-3 publications to search (e.g., "Lenny's Newsletter", "First Round Review", "SVPG")
 
-These should be TIMELESS insights from the last 6-12 months.
+Focus on:
+- TIMELESS frameworks and mental models (these don't need to be "latest news")
+- Practical application for product leaders
+- Insights from respected PM thought leaders (Lenny Rachitsky, Marty Cagan, etc.)
+- AI-first product management considerations
 
-For each article found, provide:
-1. **headline**: The actual article title
-2. **source**: The publication name  
-3. **url**: The REAL, working URL
-4. **tldr**: Your 2-3 sentence summary
-5. **why_it_matters**: Why this matters for AI-first PMs
+Return ONLY valid JSON array (no markdown):
+[
+  {{
+    "title": "...",
+    "key_insight": "...",
+    "why_it_matters": "...",
+    "search_terms": ["term1", "term2"],
+    "recommended_sources": ["Source1", "Source2"]
+  }}
+]"""
 
-IMPORTANT: Only include articles with REAL URLs.
-
-Return as JSON array."""
-
-        pm_message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=3000,
-            tools=[{
-                "name": "web_search",
-                "description": "Search the web for articles",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {"query": {"type": "string"}},
-                    "required": ["query"]
-                }
-            }],
-            messages=[{"role": "user", "content": pm_curation_prompt}]
-        )
-        
-        status_text.text("📝 Curating PM insights...")
-        progress_bar.progress(80)
-        
-        # Extract PM articles
-        pm_text = ""
-        for block in pm_message.content:
-            if hasattr(block, 'text'):
-                pm_text += block.text
-        
-        if "```json" in pm_text:
-            pm_text = pm_text.split("```json")[1].split("```")[0].strip()
-        
-        try:
+            pm_response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=3000,
+                messages=[{"role": "user", "content": pm_prompt}]
+            )
+            
+            pm_text = pm_response.content[0].text
+            if "```json" in pm_text:
+                pm_text = pm_text.split("```json")[1].split("```")[0].strip()
+            elif "```" in pm_text:
+                pm_text = pm_text.split("```")[1].split("```")[0].strip()
             pm_articles = json.loads(pm_text)
-        except:
-            # Fallback: provide curated links manually
-            pm_articles = [
-                {
-                    "headline": "The AI Product Manager's Playbook",
-                    "source": "Lenny's Newsletter",
-                    "url": "https://www.lennysnewsletter.com/p/ai-product-management",
-                    "tldr": "Lenny Rachitsky outlines the new skills PMs need for AI products: prompt engineering, understanding model limitations, and designing for uncertainty. Includes frameworks from Airbnb, Spotify, and Notion PMs.",
-                    "why_it_matters": "Provides practical frameworks for transitioning to AI-first product management from industry leaders."
-                },
-                {
-                    "headline": "How to Work with Machine Learning Teams",
-                    "source": "First Round Review",
-                    "url": "https://review.firstround.com/working-with-machine-learning-what-product-managers-need-to-know",
-                    "tldr": "PMs must learn to ask the right questions about ML models: data requirements, success metrics, and failure modes. The article provides a checklist for ML project kickoffs and ongoing collaboration.",
-                    "why_it_matters": "Essential guide for PMs partnering with ML engineers on AI features."
-                }
-            ][:num_pm]
-        
-        status_text.text("✅ Newsletter ready!")
-        progress_bar.progress(100)
-        
-        # Create newsletter
-        newsletter = {
-            "date": issue_date.strftime("%B %d, %Y"),
-            "timestamp": datetime.now().isoformat(),
-            "ai_articles": ai_articles,
-            "pm_articles": pm_articles,
-            "ai_topics": ai_topics,
-            "pm_topics": pm_topics
-        }
-        
-        st.session_state.newsletters.insert(0, newsletter)
-        st.session_state.generated_newsletter = newsletter
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        st.success("✅ Newsletter generated with real, verified articles!")
-        st.rerun()
-        
-    except Exception as e:
-        st.error(f"❌ Error: {str(e)}")
-        st.info("Note: Web search may not be available. Using curated fallback articles.")
+            
+            # Create newsletter object
+            newsletter = {
+                "date": issue_date.strftime("%B %d, %Y"),
+                "timestamp": datetime.now().isoformat(),
+                "ai_articles": ai_articles,
+                "pm_articles": pm_articles,
+                "ai_topics": ai_topics,
+                "pm_topics": pm_topics
+            }
+            
+            st.session_state.newsletters.insert(0, newsletter)
+            st.session_state.generated_newsletter = newsletter
+            
+            st.success("✅ Newsletter generated successfully!")
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"❌ Error generating newsletter: {str(e)}")
+            st.info("Please check your API key and try again.")
 
-# Display newsletter (rest of the code remains the same as before)
+# Display generated newsletter
 if st.session_state.generated_newsletter:
     newsletter = st.session_state.generated_newsletter
     
@@ -453,13 +322,16 @@ Here are this week's curated insights on AI trends and product management excell
 
 """
         for i, article in enumerate(newsletter['ai_articles'], 1):
-            email_content += f"""{i}. {article['headline']}
-Source: {article['source']}
-Link: {article['url']}
+            search_terms = article.get('search_terms', [])
+            sources = article.get('recommended_sources', [])
+            email_content += f"""{i}. {article['title']}
 
-TLDR: {article['tldr']}
+{article['key_insight']}
 
 Why it matters: {article['why_it_matters']}
+
+🔍 Search: {', '.join(search_terms) if search_terms else 'N/A'}
+📚 Sources: {', '.join(sources) if sources else 'N/A'}
 
 """
         
@@ -469,13 +341,16 @@ Why it matters: {article['why_it_matters']}
 
 """
         for i, article in enumerate(newsletter['pm_articles'], 1):
-            email_content += f"""{i}. {article['headline']}
-Source: {article['source']}
-Link: {article['url']}
+            search_terms = article.get('search_terms', [])
+            sources = article.get('recommended_sources', [])
+            email_content += f"""{i}. {article['title']}
 
-TLDR: {article['tldr']}
+{article['key_insight']}
 
 Why it matters: {article['why_it_matters']}
+
+🔍 Search: {', '.join(search_terms) if search_terms else 'N/A'}
+📚 Sources: {', '.join(sources) if sources else 'N/A'}
 
 """
         
@@ -527,17 +402,15 @@ Head of Product, North America Languages Experience"""
                 with col1:
                     st.markdown("### 🤖 AI Insights")
                     for i, article in enumerate(past_newsletter['ai_articles'], 1):
-                        st.markdown(f"**{i}. [{article['headline']}]({article['url']})**")
-                        st.markdown(f"*{article['source']}*")
-                        st.caption(article['tldr'])
+                        st.markdown(f"**{i}. {article['title']}**")
+                        st.caption(article.get('key_insight', article.get('tldr', '')))
                         st.markdown("")
                 
                 with col2:
                     st.markdown("### 📊 PM Insights")
                     for i, article in enumerate(past_newsletter['pm_articles'], 1):
-                        st.markdown(f"**{i}. [{article['headline']}]({article['url']})**")
-                        st.markdown(f"*{article['source']}*")
-                        st.caption(article['tldr'])
+                        st.markdown(f"**{i}. {article['title']}**")
+                        st.caption(article.get('key_insight', article.get('tldr', '')))
                         st.markdown("")
                 
                 if st.button("🗑️ Delete", key=f"delete_{idx}"):
@@ -554,25 +427,37 @@ Head of Product, North America Languages Experience"""
     # Default: Preview
     else:
         st.markdown(f"# 📰 {newsletter['date']}")
-        st.markdown("*Curated insights with verified, working links*")
+        st.markdown("*Curated insights with search suggestions to find the latest articles*")
         st.markdown("")
         
         col1, col2 = st.columns(2)
         
         with col1:
             st.markdown('<h2 class="section-header">🤖 AI Insights</h2>', unsafe_allow_html=True)
-            st.markdown("*Latest trends and developments*")
+            st.markdown("*Current trends and strategic considerations*")
             st.markdown("")
             
             for i, article in enumerate(newsletter['ai_articles'], 1):
+                search_terms = article.get('search_terms', [])
+                sources = article.get('recommended_sources', [])
+                
                 st.markdown(f"""
                 <div class="article-card">
-                    <h3>{i}. <a href="{article['url']}" target="_blank">{article['headline']}</a></h3>
-                    <p><em>Source: {article['source']}</em></p>
-                    <p><strong>TLDR:</strong> {article['tldr']}</p>
-                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article['why_it_matters']}</p>
+                    <h3>{i}. {article['title']}</h3>
+                    <p>{article.get('key_insight', article.get('tldr', ''))}</p>
+                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article.get('why_it_matters', '')}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                if search_terms:
+                    search_links = " | ".join([f'<a href="https://www.google.com/search?q={term.replace(" ", "+")}" target="_blank">{term}</a>' for term in search_terms])
+                    st.markdown(f"""
+                    <div class="search-tip">
+                        🔍 <strong>Search:</strong> {search_links}<br>
+                        📚 <strong>Check:</strong> {', '.join(sources) if sources else 'TechCrunch, The Verge, VentureBeat'}
+                    </div>
+                    """, unsafe_allow_html=True)
+                st.markdown("")
         
         with col2:
             st.markdown('<h2 class="section-header">📊 PM Insights</h2>', unsafe_allow_html=True)
@@ -580,14 +465,26 @@ Head of Product, North America Languages Experience"""
             st.markdown("")
             
             for i, article in enumerate(newsletter['pm_articles'], 1):
+                search_terms = article.get('search_terms', [])
+                sources = article.get('recommended_sources', [])
+                
                 st.markdown(f"""
                 <div class="article-card">
-                    <h3>{i}. <a href="{article['url']}" target="_blank">{article['headline']}</a></h3>
-                    <p><em>Source: {article['source']}</em></p>
-                    <p><strong>TLDR:</strong> {article['tldr']}</p>
-                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article['why_it_matters']}</p>
+                    <h3>{i}. {article['title']}</h3>
+                    <p>{article.get('key_insight', article.get('tldr', ''))}</p>
+                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article.get('why_it_matters', '')}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                if search_terms:
+                    search_links = " | ".join([f'<a href="https://www.google.com/search?q={term.replace(" ", "+")}" target="_blank">{term}</a>' for term in search_terms])
+                    st.markdown(f"""
+                    <div class="search-tip">
+                        🔍 <strong>Search:</strong> {search_links}<br>
+                        📚 <strong>Check:</strong> {', '.join(sources) if sources else "Lenny's Newsletter, First Round Review"}
+                    </div>
+                    """, unsafe_allow_html=True)
+                st.markdown("")
 
 # Footer
 st.markdown("---")
