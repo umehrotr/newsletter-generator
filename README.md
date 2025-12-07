@@ -39,7 +39,7 @@ ANTHROPIC_API_KEY=your-api-key
 Run the Streamlit app:
 
 ```bash
-streamlit run app.py
+streamlit run newsletter_generator.py
 ```
 
 ### Configuration Options
