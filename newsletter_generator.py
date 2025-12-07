@@ -174,24 +174,31 @@ if generate_button:
             current_date = datetime.now().strftime("%B %Y")
             
             # AI Insights prompt - focused on current trends without fake URLs
-            ai_prompt = f"""You are an expert AI analyst curating insights for product managers as of {current_date}.
+            ai_prompt = f"""You are an expert AI analyst curating in-depth insights for product managers as of {current_date}.
 
-Generate {num_ai} high-quality AI INSIGHTS (not fake news articles) about: {', '.join(ai_topics)}
+Generate {num_ai} comprehensive AI INSIGHTS about: {', '.join(ai_topics)}
 
 Team context: {team_context if team_context else 'Building AI products at scale'}
 
 For each insight, provide:
-1. **title**: A compelling insight title (not a fake article headline)
-2. **key_insight**: 2-3 sentences explaining the current trend, development, or strategic consideration
-3. **why_it_matters**: One sentence on why this matters for AI product teams
-4. **search_terms**: 2-3 specific search terms users can use to find real articles on this topic (e.g., "Claude 3.5 Sonnet benchmark comparison", "GPT-4 vision API pricing")
-5. **recommended_sources**: 2-3 publications to search (e.g., "TechCrunch", "The Verge", "Anthropic Blog")
+1. **title**: A compelling, specific insight title
+2. **key_insight**: A DETAILED explanation (5-7 sentences) covering:
+   - What the trend/development is
+   - Key technical details or capabilities
+   - How leading companies are approaching this
+   - Specific metrics, benchmarks, or data points where relevant
+   - Practical implementation considerations
+3. **why_it_matters**: 2-3 sentences on strategic implications for AI product teams
+4. **action_items**: 2-3 specific actions product managers should consider
+5. **search_terms**: 2-3 specific search terms for deeper research
+6. **recommended_sources**: 2-3 publications to explore further
 
 Focus on:
-- Developments and trends that are CURRENT and ONGOING (not dated news)
-- Strategic implications for product teams
-- Practical considerations for AI implementation
+- Developments and trends that are CURRENT and ONGOING
+- Strategic implications with specific examples
+- Practical considerations with concrete details
 - Real companies and products (OpenAI, Anthropic, Google, Meta, etc.)
+- Include specific numbers, benchmarks, or comparisons where possible
 
 Return ONLY valid JSON array (no markdown):
 [
@@ -199,6 +206,7 @@ Return ONLY valid JSON array (no markdown):
     "title": "...",
     "key_insight": "...",
     "why_it_matters": "...",
+    "action_items": ["action1", "action2"],
     "search_terms": ["term1", "term2"],
     "recommended_sources": ["Source1", "Source2"]
   }}
@@ -206,7 +214,7 @@ Return ONLY valid JSON array (no markdown):
 
             ai_response = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=3000,
+                max_tokens=4000,
                 messages=[{"role": "user", "content": ai_prompt}]
             )
             
@@ -220,19 +228,26 @@ Return ONLY valid JSON array (no markdown):
             # PM Insights prompt - timeless frameworks and wisdom
             pm_prompt = f"""You are an expert curator of product management insights for senior PMs.
 
-Generate {num_pm} high-quality PM INSIGHTS about: {', '.join(pm_topics)}
+Generate {num_pm} comprehensive PM INSIGHTS about: {', '.join(pm_topics)}
 
 For each insight, provide:
 1. **title**: A compelling insight title about a framework, principle, or best practice
-2. **key_insight**: 2-3 sentences explaining the concept and how to apply it
-3. **why_it_matters**: One sentence on relevance to modern AI-first product management
-4. **search_terms**: 2-3 specific search terms to find related content (e.g., "Lenny Rachitsky product metrics", "SVPG product discovery")
-5. **recommended_sources**: 2-3 publications to search (e.g., "Lenny's Newsletter", "First Round Review", "SVPG")
+2. **key_insight**: A DETAILED explanation (5-7 sentences) covering:
+   - What the framework/concept is and its origin
+   - Step-by-step how to apply it in practice
+   - Common pitfalls to avoid
+   - Examples of companies or PMs who use this effectively
+   - How it applies specifically to AI products
+3. **why_it_matters**: 2-3 sentences on relevance to modern AI-first product management
+4. **action_items**: 2-3 specific actions product managers can take this week
+5. **search_terms**: 2-3 specific search terms for deeper learning
+6. **recommended_sources**: 2-3 publications to explore further
 
 Focus on:
-- TIMELESS frameworks and mental models (these don't need to be "latest news")
-- Practical application for product leaders
-- Insights from respected PM thought leaders (Lenny Rachitsky, Marty Cagan, etc.)
+- TIMELESS frameworks and mental models with practical depth
+- Step-by-step application guidance
+- Insights from respected PM thought leaders (Lenny Rachitsky, Marty Cagan, Shreyas Doshi, etc.)
+- Specific examples and case studies
 - AI-first product management considerations
 
 Return ONLY valid JSON array (no markdown):
@@ -241,6 +256,7 @@ Return ONLY valid JSON array (no markdown):
     "title": "...",
     "key_insight": "...",
     "why_it_matters": "...",
+    "action_items": ["action1", "action2"],
     "search_terms": ["term1", "term2"],
     "recommended_sources": ["Source1", "Source2"]
   }}
@@ -248,7 +264,7 @@ Return ONLY valid JSON array (no markdown):
 
             pm_response = client.messages.create(
                 model="claude-sonnet-4-20250514",
-                max_tokens=3000,
+                max_tokens=4000,
                 messages=[{"role": "user", "content": pm_prompt}]
             )
             
@@ -324,13 +340,22 @@ Here are this week's curated insights on AI trends and product management excell
         for i, article in enumerate(newsletter['ai_articles'], 1):
             search_terms = article.get('search_terms', [])
             sources = article.get('recommended_sources', [])
+            action_items = article.get('action_items', [])
+            
             email_content += f"""{i}. {article['title']}
 
 {article['key_insight']}
 
-Why it matters: {article['why_it_matters']}
+💡 Why it matters: {article['why_it_matters']}
 
-🔍 Search: {', '.join(search_terms) if search_terms else 'N/A'}
+"""
+            if action_items:
+                email_content += "🎯 Action Items:\n"
+                for action in action_items:
+                    email_content += f"   • {action}\n"
+                email_content += "\n"
+            
+            email_content += f"""🔍 Learn more: {', '.join(search_terms) if search_terms else 'N/A'}
 📚 Sources: {', '.join(sources) if sources else 'N/A'}
 
 """
@@ -343,13 +368,22 @@ Why it matters: {article['why_it_matters']}
         for i, article in enumerate(newsletter['pm_articles'], 1):
             search_terms = article.get('search_terms', [])
             sources = article.get('recommended_sources', [])
+            action_items = article.get('action_items', [])
+            
             email_content += f"""{i}. {article['title']}
 
 {article['key_insight']}
 
-Why it matters: {article['why_it_matters']}
+💡 Why it matters: {article['why_it_matters']}
 
-🔍 Search: {', '.join(search_terms) if search_terms else 'N/A'}
+"""
+            if action_items:
+                email_content += "🎯 Action Items:\n"
+                for action in action_items:
+                    email_content += f"   • {action}\n"
+                email_content += "\n"
+            
+            email_content += f"""🔍 Learn more: {', '.join(search_terms) if search_terms else 'N/A'}
 📚 Sources: {', '.join(sources) if sources else 'N/A'}
 
 """
@@ -440,24 +474,30 @@ Head of Product, North America Languages Experience"""
             for i, article in enumerate(newsletter['ai_articles'], 1):
                 search_terms = article.get('search_terms', [])
                 sources = article.get('recommended_sources', [])
+                action_items = article.get('action_items', [])
                 
                 st.markdown(f"""
                 <div class="article-card">
                     <h3>{i}. {article['title']}</h3>
-                    <p>{article.get('key_insight', article.get('tldr', ''))}</p>
-                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article.get('why_it_matters', '')}</p>
+                    <p style="line-height: 1.7;">{article.get('key_insight', article.get('tldr', ''))}</p>
+                    <p style="color: #667eea; margin-top: 1rem;"><strong>💡 Why it matters:</strong> {article.get('why_it_matters', '')}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                if action_items:
+                    st.markdown("**🎯 Action Items:**")
+                    for action in action_items:
+                        st.markdown(f"• {action}")
                 
                 if search_terms:
                     search_links = " | ".join([f'<a href="https://www.google.com/search?q={term.replace(" ", "+")}" target="_blank">{term}</a>' for term in search_terms])
                     st.markdown(f"""
                     <div class="search-tip">
-                        🔍 <strong>Search:</strong> {search_links}<br>
-                        📚 <strong>Check:</strong> {', '.join(sources) if sources else 'TechCrunch, The Verge, VentureBeat'}
+                        🔍 <strong>Learn more:</strong> {search_links}<br>
+                        📚 <strong>Sources:</strong> {', '.join(sources) if sources else 'TechCrunch, The Verge, VentureBeat'}
                     </div>
                     """, unsafe_allow_html=True)
-                st.markdown("")
+                st.markdown("---")
         
         with col2:
             st.markdown('<h2 class="section-header">📊 PM Insights</h2>', unsafe_allow_html=True)
@@ -467,24 +507,30 @@ Head of Product, North America Languages Experience"""
             for i, article in enumerate(newsletter['pm_articles'], 1):
                 search_terms = article.get('search_terms', [])
                 sources = article.get('recommended_sources', [])
+                action_items = article.get('action_items', [])
                 
                 st.markdown(f"""
                 <div class="article-card">
                     <h3>{i}. {article['title']}</h3>
-                    <p>{article.get('key_insight', article.get('tldr', ''))}</p>
-                    <p style="color: #667eea;"><em>💡 Why it matters:</em> {article.get('why_it_matters', '')}</p>
+                    <p style="line-height: 1.7;">{article.get('key_insight', article.get('tldr', ''))}</p>
+                    <p style="color: #667eea; margin-top: 1rem;"><strong>💡 Why it matters:</strong> {article.get('why_it_matters', '')}</p>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                if action_items:
+                    st.markdown("**🎯 Action Items:**")
+                    for action in action_items:
+                        st.markdown(f"• {action}")
                 
                 if search_terms:
                     search_links = " | ".join([f'<a href="https://www.google.com/search?q={term.replace(" ", "+")}" target="_blank">{term}</a>' for term in search_terms])
                     st.markdown(f"""
                     <div class="search-tip">
-                        🔍 <strong>Search:</strong> {search_links}<br>
-                        📚 <strong>Check:</strong> {', '.join(sources) if sources else "Lenny's Newsletter, First Round Review"}
+                        🔍 <strong>Learn more:</strong> {search_links}<br>
+                        📚 <strong>Sources:</strong> {', '.join(sources) if sources else "Lenny's Newsletter, First Round Review"}
                     </div>
                     """, unsafe_allow_html=True)
-                st.markdown("")
+                st.markdown("---")
 
 # Footer
 st.markdown("---")
